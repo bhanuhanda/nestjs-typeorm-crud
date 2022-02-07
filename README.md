@@ -1,72 +1,210 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo_text.svg" width="320" alt="Nest Logo" /></a>
-</p>
+## Notion Link
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+[TypeORM Notes](https://rich-lettuce-031.notion.site/Type-ORM-0301ae1ef0c74a90a0f25366022a379e) are hosted here for reference.
 
 ## Installation
 
 ```bash
-$ npm install
+$ yarn
 ```
 
 ## Running the app
 
 ```bash
 # development
-$ npm run start
+$ yarn start
 
 # watch mode
-$ npm run start:dev
+$ yarn start:dev
 
 # production mode
-$ npm run start:prod
+$ yarn start:prod
+```
+## Get in touch
+
+- Bhanu Handa - [https://www.linkedin.com/in/bhanu-handa-1607/](https://www.linkedin.com/in/bhanu-handa-1607/)
+
+---
+# Type ORM
+
+## How to connect to Database (inject typeORM into imports)
+
+- `**npm install --save @nestjs/typeorm typeorm sqlite3**`
+- add **`TypeOrmModule.forRoot({...})`** to app module’s imports
+    - **TypeOrmModule** is imported from ‘**`@nestjs/typeorm`**’
+
+## How to create an Entity (entity = a table)
+
+- `@**Entity`** decorator ****on a class tells that this class will represent the **shape of our User table**
+- **`@Column`** decorator will add a varchar type column to the database
+- **`@PrimaryGeneratedColumn`** will add an autoincrementing column
+
+```tsx
+@Entity()
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  name: string;
+
+  @OneToMany(type => Pet, pet => pet.owner)
+  pets: Pet[];
+}
 ```
 
+```tsx
+@Entity()
+export class Pet {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  name: string;
+
+  @ManyToOne(type => User, user => user.pets)
+  owner: User;
+}
+```
+
+## How to handle migrations (`synchronization: false`, `run migrations:generate`)
+
+- instead of **`synchronization: true`** (development friendly)**,** in prod we use **Migrations.**
+    - in the ORM config object, sync: false, migrations & cli need to be set.
+
+```jsx
+"typeorm": "node --require ts-node/register ./node_modules/typeorm/cli.js",
+"migration:generate": "npm run build && npm run typeorm migration:generate -- -n"
+"migration:run": "npm run build && npm run typeorm migration:run"
+```
+
+- *src/db/migrations*
+    - **`up()`** - meant for creating migrations
+    - **`down()`** - meant for reverting migrations
+- for any change into DB
+    - update the entity file
+    - `**npm run migrate:generate -- UserMigration**`
+    - `**npm run migrate:run**`
+- if we want any custom migrations, side seeding some data, which can’t be done in entity file, we can create a file in the migrations folder.
+
+## Create Queries (inject repositories into providers)
+
+- inside the service (which is in providers array) - `**constructor(@InjectRepository(User) private userRepository: Repository<User>) {}**`
+
+## Repository API & Querying
+
+- `**find(), findOneOrFail()**`
+- using `**save`** & `**remove`** because they return repository objects instead of `**insert`** & `**delete`** which return <insertResult> or <deleteResult>
+- `**findOneOrFail`** instead of `**findOne`** to handle errors instead of returning empty result.
+
+```tsx
+customQuery(): any {
+      return this.userRepository.createQueryBuilder("user").select("name").where(...)
+  }
+```
+
+## CRUD operations
+
+```tsx
+@Controller('users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @Get()
+  getUsers(): Promise<User[]> {
+    return this.userService.getAll();
+  }
+
+  @Get(':id')
+  getUser(@Param() params): Promise<User> {
+    return this.userService.getOneById(params.id);
+  }
+
+  @Get('/create/:name')
+  createUser(@Param() params): Promise<User> {
+    return this.userService.createUser(params.name);
+  }
+
+  @Get('/alter/:id/:name')
+  updateUser(@Param() params): Promise<User> {
+    return this.userService.updateUser(params.id, params.name);
+  }
+
+  @Get('/delete/:id')
+  deleteUser(@Param() params): Promise<User> {
+    return this.userService.deleteUser(params.id);
+  }
+}
+```
+
+```tsx
+@Injectable()
+export class UserService {
+  constructor(
+    @InjectRepository(User) private userRepository: Repository<User>,
+  ) {}
+
+  getAll(): Promise<User[]> {
+    return this.userRepository.find(); // SELECT * from user
+  }
+
+  async getOneById(id: number): Promise<User> {
+    try {
+      const user = await this.userRepository.findOneOrFail(id); 
+			// SELECT * from user WHERE user.id = id
+      return user;
+    } catch (err) {
+      throw err; // handle error
+    }
+  }
+
+  createUser(name: string): Promise<User> {
+    const newUser = this.userRepository.create({ name }); 
+		// const newUser = new User(); newUser.name = name;
+    return this.userRepository.save(newUser); // INSERT
+  }
+
+  async updateUser(id: number, name: string): Promise<User> {
+    const user = await this.getOneById(id);
+    user.name = name;
+    return this.userRepository.save(user); // UPDATE
+  }
+
+  async deleteUser(id: number): Promise<User> {
+    const user = await this.getOneById(id);
+    return this.userRepository.remove(user); // DELETE
+  }
+}
+```
+
+## Relations
+
+```tsx
+@ManyToOne(type => User, user => user.pets)
+owner: User;
+
+@OneToMany(type => Pet, pet => pet.owner)
+pets: Pet[];
+
+getAll(): Promise<User[]> {
+  return this.userRepository.find({
+    relations: ['pets'],
+  }); // SELECT * from user JOIN pets
+}
+```
+---
 ## Test
 
 ```bash
 # unit tests
-$ npm run test
+$ yarn test
 
 # e2e tests
-$ npm run test:e2e
+$ yarn test:e2e
 
 # test coverage
-$ npm run test:cov
+$ yarn test:cov
 ```
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
 
 ## License
 
